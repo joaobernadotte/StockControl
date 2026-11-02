@@ -163,6 +163,7 @@ def atualizar_produto(id_produto, campo, novo_valor):
             conexao.close()
 
 
+
 def excluir_produto(id_produto):
     conexao = None
     cursor = None
@@ -177,12 +178,15 @@ def excluir_produto(id_produto):
         conexao.commit()
 
         if cursor.rowcount > 0:
-            print("Produto excluído com sucesso!")
-        else:
-            print("Produto não encontrado.")
+            return True, "Produto excluído com sucesso!"
+
+        return False, "Produto não encontrado."
 
     except mysql.connector.Error as erro:
-        print(f"Erro ao excluir produto: {erro}")
+        if conexao is not None:
+            conexao.rollback()
+
+        return False, f"Erro ao excluir produto: {erro}"
 
     finally:
         if cursor is not None:
@@ -190,6 +194,7 @@ def excluir_produto(id_produto):
 
         if conexao is not None and conexao.is_connected():
             conexao.close()
+
 
 def buscar_produto_por_id(id_produto):
     conexao = None

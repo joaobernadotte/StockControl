@@ -8,7 +8,8 @@ from src.database import (
 
 from src.servicos import (
     cadastrar_produto_servico,
-    atualizar_produto_servico
+    atualizar_produto_servico,
+    excluir_produto_servico
 )
 
 from src.validacoes import ler_inteiro, ler_decimal
@@ -136,7 +137,8 @@ def excluir():
     ).strip().lower()
 
     if confirmacao == "s":
-        excluir_produto(id_produto)
+        sucesso, mensagem = excluir_produto_servico(id_produto)
+        print(mensagem)
     else:
         print("Exclusão cancelada.")
 

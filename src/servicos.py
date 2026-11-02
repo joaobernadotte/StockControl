@@ -1,5 +1,9 @@
 
-from src.database import cadastrar_produto, atualizar_produto
+from src.database import (
+    cadastrar_produto,
+    atualizar_produto,
+    excluir_produto
+)
 
 def validar_dados_produto(
     nome,
@@ -96,4 +100,5 @@ def atualizar_produto_servico(id_produto, campo, novo_valor):
         novo_valor
     )
 
-
+def excluir_produto_servico(id_produto):
+    return excluir_produto(id_produto)

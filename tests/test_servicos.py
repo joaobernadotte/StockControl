@@ -166,7 +166,11 @@ def test_cadastrar_produto_servico_com_nome_vazio():
 
 
 def test_atualizar_produto_servico_com_dados_validos():
-    with patch("src.servicos.atualizar_produto") as atualizacao:
+    with patch(
+        "src.servicos.atualizar_produto",
+        return_value=(True, "Produto atualizado com sucesso!")
+    ) as atualizacao:
+
         resultado, mensagem = atualizar_produto_servico(
             1,
             "4",
@@ -174,8 +178,13 @@ def test_atualizar_produto_servico_com_dados_validos():
         )
 
     assert resultado is True
-    assert mensagem == "Dados válidos."
-    atualizacao.assert_called_once_with(1, "4", 299.90)
+    assert mensagem == "Produto atualizado com sucesso!"
+
+    atualizacao.assert_called_once_with(
+        1,
+        "4",
+        299.90
+    )
 
 
 def test_atualizar_produto_servico_com_preco_invalido():

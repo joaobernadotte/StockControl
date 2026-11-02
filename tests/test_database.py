@@ -91,6 +91,7 @@ def test_cadastrar_produto():
     conexao_falsa.close.assert_called_once()
 
 
+
 def test_atualizar_produto():
     conexao_falsa = MagicMock()
     cursor_falso = MagicMock()
@@ -103,16 +104,26 @@ def test_atualizar_produto():
         "src.database.conectar",
         return_value=conexao_falsa
     ):
-        atualizar_produto(1, "5", 25)
+        resultado = atualizar_produto(1, "5", 25)
 
-    cursor_falso.execute.assert_called_once_with(
-        "UPDATE produtos SET quantidade = %s WHERE id = %s",
-        (25, 1)
+    assert resultado == (True, "Produto atualizado com sucesso!")
+
+    cursor_falso.execute.assert_called_once()
+
+    sql_executado = cursor_falso.execute.call_args.args[0]
+    sql_normalizado = " ".join(sql_executado.split())
+
+    assert sql_normalizado == (
+        "UPDATE produtos SET quantidade = %s WHERE id = %s"
     )
+
+    assert cursor_falso.execute.call_args.args[1] == (25, 1)
 
     conexao_falsa.commit.assert_called_once()
     cursor_falso.close.assert_called_once()
     conexao_falsa.close.assert_called_once()
+
+
 
 def test_excluir_produto():
     conexao_falsa = MagicMock()
@@ -127,7 +138,10 @@ def test_excluir_produto():
         "src.database.conectar",
         return_value=conexao_falsa
     ):
-        excluir_produto(5)
+        sucesso, mensagem = excluir_produto(5)
+
+    assert sucesso is True
+    assert mensagem == "Produto excluído com sucesso!"
 
     cursor_falso.execute.assert_called_once_with(
         "DELETE FROM produtos WHERE id = %s",
@@ -138,7 +152,8 @@ def test_excluir_produto():
     cursor_falso.close.assert_called_once()
     conexao_falsa.close.assert_called_once()
 
-def test_atualizar_produto_sem_registro_afetado(capsys):
+
+def test_excluir_produto_inexistente():
     conexao_falsa = MagicMock()
     cursor_falso = MagicMock()
 
@@ -151,15 +166,41 @@ def test_atualizar_produto_sem_registro_afetado(capsys):
         "src.database.conectar",
         return_value=conexao_falsa
     ):
-        atualizar_produto(9999, "5", 25)
+        sucesso, mensagem = excluir_produto(999)
 
-    captura = capsys.readouterr()
-
-    assert "Produto não encontrado ou nenhum dado foi alterado." in captura.out
+    assert sucesso is False
+    assert mensagem == "Produto não encontrado."
 
     conexao_falsa.commit.assert_called_once()
     cursor_falso.close.assert_called_once()
     conexao_falsa.close.assert_called_once()
+
+
+
+def test_atualizar_produto_sem_registro_afetado():
+    conexao_falsa = MagicMock()
+    cursor_falso = MagicMock()
+
+    conexao_falsa.cursor.return_value = cursor_falso
+    conexao_falsa.is_connected.return_value = True
+
+    cursor_falso.rowcount = 0
+
+    with patch(
+        "src.database.conectar",
+        return_value=conexao_falsa
+    ):
+        resultado = atualizar_produto(9999, "5", 25)
+
+    assert resultado == (
+        False,
+        "Produto não encontrado ou nenhum dado foi alterado."
+    )
+
+    conexao_falsa.commit.assert_called_once()
+    cursor_falso.close.assert_called_once()
+    conexao_falsa.close.assert_called_once()
+
 
 def test_buscar_produto_inexistente():
     conexao_falsa = MagicMock()
@@ -228,5 +269,16 @@ def test_falha_na_conexao_ao_cadastrar_produto():
     assert "Erro ao cadastrar produto" in resultado[1]
     assert "Falha na conexão" in resultado[1]
 
+
+def test_excluir_produto_falha_conexao():
+    with patch(
+        "src.database.conectar",
+        side_effect=mysql.connector.Error("Falha de conexão")
+    ):
+        sucesso, mensagem = excluir_produto(5)
+
+    assert sucesso is False
+    assert "Erro ao excluir produto:" in mensagem
+    assert "Falha de conexão" in mensagem
 
 
