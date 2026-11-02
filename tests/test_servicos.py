@@ -5,7 +5,8 @@ from src.servicos import (
     validar_dados_produto,
     validar_atualizacao_produto,
     cadastrar_produto_servico,
-    atualizar_produto_servico
+    atualizar_produto_servico,
+    registrar_movimentacao_servico
 )
 
 def test_dados_produto_validos():
@@ -106,11 +107,14 @@ def test_atualizacao_com_nome_vazio():
     assert mensagem == "O nome do produto é obrigatório."
 
 
+
 def test_atualizacao_com_quantidade_negativa():
     resultado, mensagem = validar_atualizacao_produto("5", -10)
 
     assert resultado is False
-    assert mensagem == "O valor não pode ser negativo."
+    assert "não pode ser alterada diretamente" in mensagem
+    assert "movimentações" in mensagem
+
 
 
 def test_atualizacao_com_campo_invalido():
@@ -218,3 +222,53 @@ def test_cadastrar_produto_servico_com_falha_no_banco():
     assert mensagem == "Erro ao cadastrar produto: Falha na conexão"
 
     cadastro.assert_called_once()
+
+
+def test_validar_atualizacao_produto_rejeita_alteracao_quantidade():
+    valido, mensagem = validar_atualizacao_produto("5", 20)
+
+    assert valido is False
+    assert "não pode ser alterada diretamente" in mensagem
+    assert "movimentações" in mensagem
+
+
+def test_registrar_movimentacao_servico_com_dados_validos():
+    with patch(
+        "src.servicos.registrar_movimentacao",
+        return_value=(True, "Movimentação registrada com sucesso!")
+    ) as mock_movimentacao:
+
+        sucesso, mensagem = registrar_movimentacao_servico(
+            5, "entrada", 20, "Compra"
+        )
+
+    assert sucesso is True
+    assert mensagem == "Movimentação registrada com sucesso!"
+
+    mock_movimentacao.assert_called_once_with(
+        5, "entrada", 20, "Compra"
+    )
+
+
+def test_registrar_movimentacao_servico_com_tipo_invalido():
+    with patch("src.servicos.registrar_movimentacao") as mock_movimentacao:
+        sucesso, mensagem = registrar_movimentacao_servico(
+            5, "transferencia", 10, "Teste"
+        )
+
+    assert sucesso is False
+    assert mensagem == "Tipo de movimentação inválido."
+
+    mock_movimentacao.assert_not_called()
+
+
+def test_registrar_movimentacao_servico_com_quantidade_invalida():
+    with patch("src.servicos.registrar_movimentacao") as mock_movimentacao:
+        sucesso, mensagem = registrar_movimentacao_servico(
+            5, "entrada", 0, "Teste"
+        )
+
+    assert sucesso is False
+    assert mensagem == "A quantidade deve ser maior que zero."
+
+    mock_movimentacao.assert_not_called()

@@ -2,7 +2,8 @@
 from src.database import (
     cadastrar_produto,
     atualizar_produto,
-    excluir_produto
+    excluir_produto,
+    registrar_movimentacao
 )
 
 def validar_dados_produto(
@@ -30,18 +31,21 @@ def validar_dados_produto(
     return True, "Dados válidos."
 
 
+
 def validar_atualizacao_produto(campo, novo_valor):
-    campos_texto = {
-        "1": "nome",
-        "2": "descricao"
-    }
+    campos_texto = {"1": "nome", "2": "descricao"}
 
     campos_numericos = {
         "3": "preco_compra",
         "4": "preco_venda",
-        "5": "quantidade",
         "6": "estoque_minimo"
     }
+
+    if campo == "5":
+        return False, (
+            "A quantidade não pode ser alterada diretamente. "
+            "Utilize o módulo de movimentações."
+        )
 
     if campo not in campos_texto and campo not in campos_numericos:
         return False, "Campo inválido."
@@ -49,13 +53,14 @@ def validar_atualizacao_produto(campo, novo_valor):
     if campo == "1" and not novo_valor.strip():
         return False, "O nome do produto é obrigatório."
 
-    if campo in ("3", "5", "6") and novo_valor < 0:
+    if campo in ("3", "6") and novo_valor < 0:
         return False, "O valor não pode ser negativo."
 
     if campo == "4" and novo_valor <= 0:
         return False, "O preço de venda precisa ser maior que zero."
 
     return True, "Atualização válida."
+
 
 
 
@@ -102,3 +107,20 @@ def atualizar_produto_servico(id_produto, campo, novo_valor):
 
 def excluir_produto_servico(id_produto):
     return excluir_produto(id_produto)
+
+
+def registrar_movimentacao_servico(
+    id_produto, tipo, quantidade, observacao
+):
+    if tipo not in ("entrada", "saida"):
+        return False, "Tipo de movimentação inválido."
+
+    if quantidade <= 0:
+        return False, "A quantidade deve ser maior que zero."
+
+    return registrar_movimentacao(
+        id_produto,
+        tipo,
+        quantidade,
+        observacao
+    )

@@ -6,7 +6,8 @@ from src.database import (
     cadastrar_produto,
     atualizar_produto,
     excluir_produto,
-    listar_produtos_estoque_baixo
+    listar_produtos_estoque_baixo,
+    registrar_movimentacao
 )
 
 
@@ -92,6 +93,7 @@ def test_cadastrar_produto():
 
 
 
+
 def test_atualizar_produto():
     conexao_falsa = MagicMock()
     cursor_falso = MagicMock()
@@ -104,7 +106,7 @@ def test_atualizar_produto():
         "src.database.conectar",
         return_value=conexao_falsa
     ):
-        resultado = atualizar_produto(1, "5", 25)
+        resultado = atualizar_produto(1, "1", "Mouse Gamer")
 
     assert resultado == (True, "Produto atualizado com sucesso!")
 
@@ -114,14 +116,15 @@ def test_atualizar_produto():
     sql_normalizado = " ".join(sql_executado.split())
 
     assert sql_normalizado == (
-        "UPDATE produtos SET quantidade = %s WHERE id = %s"
+        "UPDATE produtos SET nome = %s WHERE id = %s"
     )
 
-    assert cursor_falso.execute.call_args.args[1] == (25, 1)
+    assert cursor_falso.execute.call_args.args[1] == ("Mouse Gamer", 1)
 
     conexao_falsa.commit.assert_called_once()
     cursor_falso.close.assert_called_once()
     conexao_falsa.close.assert_called_once()
+
 
 
 
@@ -177,6 +180,7 @@ def test_excluir_produto_inexistente():
 
 
 
+
 def test_atualizar_produto_sem_registro_afetado():
     conexao_falsa = MagicMock()
     cursor_falso = MagicMock()
@@ -190,7 +194,7 @@ def test_atualizar_produto_sem_registro_afetado():
         "src.database.conectar",
         return_value=conexao_falsa
     ):
-        resultado = atualizar_produto(9999, "5", 25)
+        resultado = atualizar_produto(9999, "1", "Mouse Gamer")
 
     assert resultado == (
         False,
@@ -200,6 +204,15 @@ def test_atualizar_produto_sem_registro_afetado():
     conexao_falsa.commit.assert_called_once()
     cursor_falso.close.assert_called_once()
     conexao_falsa.close.assert_called_once()
+
+
+def test_atualizar_produto_nao_permite_alterar_quantidade():
+    with patch("src.database.conectar") as conectar_falso:
+        resultado = atualizar_produto(1, "5", 25)
+
+    assert resultado == (False, "Campo inválido.")
+
+    conectar_falso.assert_not_called()
 
 
 def test_buscar_produto_inexistente():
@@ -282,3 +295,167 @@ def test_excluir_produto_falha_conexao():
     assert "Falha de conexão" in mensagem
 
 
+def test_registrar_movimentacao_entrada():
+    conexao_falsa = MagicMock()
+    cursor_falso = MagicMock()
+
+    conexao_falsa.cursor.return_value = cursor_falso
+    conexao_falsa.is_connected.return_value = True
+
+    cursor_falso.fetchone.return_value = {
+        "id": 5,
+        "quantidade": 10
+    }
+
+    with patch(
+        "src.database.conectar",
+        return_value=conexao_falsa
+    ):
+        sucesso, mensagem = registrar_movimentacao(
+            5, "entrada", 20, "Compra de mercadorias"
+        )
+
+    assert sucesso is True
+    assert mensagem == "Movimentação registrada com sucesso!"
+
+    assert cursor_falso.execute.call_count == 3
+    conexao_falsa.commit.assert_called_once()
+    cursor_falso.close.assert_called_once()
+    conexao_falsa.close.assert_called_once()
+
+
+def test_registrar_movimentacao_saida():
+    conexao_falsa = MagicMock()
+    cursor_falso = MagicMock()
+
+    conexao_falsa.cursor.return_value = cursor_falso
+    conexao_falsa.is_connected.return_value = True
+
+    cursor_falso.fetchone.return_value = {
+        "id": 5,
+        "quantidade": 30
+    }
+
+    with patch(
+        "src.database.conectar",
+        return_value=conexao_falsa
+    ):
+        sucesso, mensagem = registrar_movimentacao(
+            5, "saida", 8, "Venda de mercadorias"
+        )
+
+    assert sucesso is True
+    assert mensagem == "Movimentação registrada com sucesso!"
+
+    assert cursor_falso.execute.call_count == 3
+    conexao_falsa.commit.assert_called_once()
+    cursor_falso.close.assert_called_once()
+    conexao_falsa.close.assert_called_once()
+
+
+def test_registrar_movimentacao_estoque_insuficiente():
+    conexao_falsa = MagicMock()
+    cursor_falso = MagicMock()
+
+    conexao_falsa.cursor.return_value = cursor_falso
+    conexao_falsa.is_connected.return_value = True
+
+    cursor_falso.fetchone.return_value = {
+        "id": 5,
+        "quantidade": 10
+    }
+
+    with patch(
+        "src.database.conectar",
+        return_value=conexao_falsa
+    ):
+        sucesso, mensagem = registrar_movimentacao(
+            5, "saida", 15, "Venda de mercadorias"
+        )
+
+    assert sucesso is False
+    assert mensagem == "Estoque insuficiente."
+
+    cursor_falso.execute.assert_called_once()
+    conexao_falsa.rollback.assert_called_once()
+    conexao_falsa.commit.assert_not_called()
+    cursor_falso.close.assert_called_once()
+    conexao_falsa.close.assert_called_once()
+
+
+def test_registrar_movimentacao_produto_inexistente():
+    conexao_falsa = MagicMock()
+    cursor_falso = MagicMock()
+
+    conexao_falsa.cursor.return_value = cursor_falso
+    conexao_falsa.is_connected.return_value = True
+
+    cursor_falso.fetchone.return_value = None
+
+    with patch(
+        "src.database.conectar",
+        return_value=conexao_falsa
+    ):
+        sucesso, mensagem = registrar_movimentacao(
+            999, "entrada", 10, "Compra de mercadorias"
+        )
+
+    assert sucesso is False
+    assert mensagem == "Produto não encontrado."
+
+    cursor_falso.execute.assert_called_once()
+    conexao_falsa.rollback.assert_called_once()
+    conexao_falsa.commit.assert_not_called()
+    cursor_falso.close.assert_called_once()
+    conexao_falsa.close.assert_called_once()
+
+
+def test_registrar_movimentacao_quantidade_invalida():
+    with patch("src.database.conectar") as conectar_falso:
+        sucesso, mensagem = registrar_movimentacao(
+            5, "entrada", 0, "Compra de mercadorias"
+        )
+
+    assert sucesso is False
+    assert mensagem == "A quantidade deve ser maior que zero."
+
+    conectar_falso.assert_not_called()
+
+
+
+def test_registrar_movimentacao_falha_ao_inserir_historico():
+    conexao_falsa = MagicMock()
+    cursor_falso = MagicMock()
+
+    conexao_falsa.cursor.return_value = cursor_falso
+    conexao_falsa.is_connected.return_value = True
+
+    cursor_falso.fetchone.return_value = {
+        "id": 5,
+        "quantidade": 10
+    }
+
+    cursor_falso.execute.side_effect = [
+        None,
+        None,
+        mysql.connector.Error("Falha ao registrar movimentação")
+    ]
+
+    with patch(
+        "src.database.conectar",
+        return_value=conexao_falsa
+    ):
+        sucesso, mensagem = registrar_movimentacao(
+            5, "entrada", 20, "Compra de mercadorias"
+        )
+
+    assert sucesso is False
+    assert "Erro ao registrar movimentação:" in mensagem
+
+    assert cursor_falso.execute.call_count == 3
+
+    conexao_falsa.commit.assert_not_called()
+    conexao_falsa.rollback.assert_called_once()
+
+    cursor_falso.close.assert_called_once()
+    conexao_falsa.close.assert_called_once()

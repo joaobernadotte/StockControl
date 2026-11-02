@@ -9,7 +9,8 @@ from src.database import (
 from src.servicos import (
     cadastrar_produto_servico,
     atualizar_produto_servico,
-    excluir_produto_servico
+    excluir_produto_servico,
+    registrar_movimentacao_servico
 )
 
 from src.validacoes import ler_inteiro, ler_decimal
@@ -23,6 +24,7 @@ def exibir_menu():
     print("4 - Excluir produto")
     print("5 - Sair")
     print("6 - Relatório de estoque baixo")
+    print("7 - Movimentar estoque")
 
 
 def listar():
@@ -89,7 +91,6 @@ def atualizar():
     print("2 - Descrição")
     print("3 - Preço de compra")
     print("4 - Preço de venda")
-    print("5 - Quantidade")
     print("6 - Estoque mínimo")
 
     campo = input("Escolha uma opção: ").strip()
@@ -103,7 +104,7 @@ def atualizar():
     elif campo in ("3", "4"):
         novo_valor = ler_decimal("Novo valor: ")
 
-    elif campo in ("5", "6"):
+    elif campo in "6":
         novo_valor = ler_inteiro("Novo valor: ")
 
     else:
@@ -117,6 +118,52 @@ def atualizar():
     )
 
     print(mensagem)
+
+
+def movimentar_estoque():
+    print("\n===== MOVIMENTAÇÃO DE ESTOQUE =====")
+
+    id_produto = ler_inteiro("Digite o ID do produto: ")
+
+    produto = buscar_produto_por_id(id_produto)
+
+    if produto is None:
+        print("Produto não encontrado ou não foi possível consultar o banco.")
+        return
+
+    print(f"\nProduto: {produto['nome']}")
+    print(f"Estoque atual: {produto['quantidade']} unidades")
+
+    print("\nTipos de movimentação:")
+    print("1 - Entrada")
+    print("2 - Saída")
+
+    tipo_opcao = input("Escolha uma opção: ").strip()
+
+    if tipo_opcao == "1":
+        tipo = "entrada"
+    elif tipo_opcao == "2":
+        tipo = "saida"
+    else:
+        print("Opção inválida.")
+        return
+
+    quantidade = ler_inteiro("Digite a quantidade: ")
+
+    if quantidade == 0:
+        print("A quantidade deve ser maior que zero.")
+        return
+
+    observacao = input("Digite uma observação: ").strip()
+
+    sucesso, mensagem = registrar_movimentacao_servico(
+        id_produto,
+        tipo,
+        quantidade,
+        observacao
+    )
+
+    print(f"\n{mensagem}")
 
 
 def excluir():
@@ -187,6 +234,9 @@ def main():
 
         elif opcao == "6":
             relatorio_estoque_baixo()
+
+        elif opcao == "7":
+            movimentar_estoque()
 
         else:
             print("Opção inválida. Tente novamente.")

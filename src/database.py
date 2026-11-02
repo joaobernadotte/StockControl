@@ -111,6 +111,7 @@ def cadastrar_produto(
 
 
 
+
 def atualizar_produto(id_produto, campo, novo_valor):
     conexao = None
     cursor = None
@@ -120,7 +121,6 @@ def atualizar_produto(id_produto, campo, novo_valor):
         "2": "descricao",
         "3": "preco_compra",
         "4": "preco_venda",
-        "5": "quantidade",
         "6": "estoque_minimo"
     }
 
@@ -163,7 +163,6 @@ def atualizar_produto(id_produto, campo, novo_valor):
             conexao.close()
 
 
-
 def excluir_produto(id_produto):
     conexao = None
     cursor = None
@@ -181,6 +180,15 @@ def excluir_produto(id_produto):
             return True, "Produto excluído com sucesso!"
 
         return False, "Produto não encontrado."
+
+    except mysql.connector.IntegrityError:
+        if conexao is not None:
+            conexao.rollback()
+
+        return False, (
+            "Não é possível excluir este produto, "
+            "pois ele possui movimentações registradas."
+        )
 
     except mysql.connector.Error as erro:
         if conexao is not None:
@@ -260,3 +268,90 @@ def listar_produtos_estoque_baixo():
 
         if conexao is not None and conexao.is_connected():
             conexao.close()
+
+
+def registrar_movimentacao(
+    id_produto, tipo, quantidade, observacao
+):
+    conexao = None
+    cursor = None
+
+    try:
+        # Validar os dados básicos
+        if tipo not in ("entrada", "saida"):
+            return False, "Tipo de movimentação inválido."
+
+        if quantidade <= 0:
+            return False, "A quantidade deve ser maior que zero."
+
+        conexao = conectar()
+        cursor = conexao.cursor(dictionary=True)
+
+        # Consultar e bloquear o produto durante a transação
+        sql_buscar = """
+            SELECT id, quantidade
+            FROM produtos
+            WHERE id = %s
+            FOR UPDATE
+        """
+
+        cursor.execute(sql_buscar, (id_produto,))
+        produto = cursor.fetchone()
+
+        if produto is None:
+            conexao.rollback()
+            return False, "Produto não encontrado."
+
+        estoque_atual = produto["quantidade"]
+
+        # Calcular o novo estoque
+        if tipo == "entrada":
+            novo_estoque = estoque_atual + quantidade
+        else:
+            if quantidade > estoque_atual:
+                conexao.rollback()
+                return False, "Estoque insuficiente."
+
+            novo_estoque = estoque_atual - quantidade
+
+        # Atualizar o estoque
+        sql_atualizar = """
+            UPDATE produtos
+            SET quantidade = %s
+            WHERE id = %s
+        """
+
+        cursor.execute(
+            sql_atualizar,
+            (novo_estoque, id_produto)
+        )
+
+        # Registrar a movimentação
+        sql_movimentacao = """
+            INSERT INTO movimentacoes
+            (produto_id, tipo, quantidade, observacao)
+            VALUES (%s, %s, %s, %s)
+        """
+
+        cursor.execute(
+            sql_movimentacao,
+            (id_produto, tipo, quantidade, observacao)
+        )
+
+        conexao.commit()
+
+        return True, "Movimentação registrada com sucesso!"
+
+    except mysql.connector.Error as erro:
+        if conexao is not None:
+            conexao.rollback()
+
+        return False, f"Erro ao registrar movimentação: {erro}"
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+        if conexao is not None and conexao.is_connected():
+            conexao.close()
+
